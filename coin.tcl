@@ -26,7 +26,7 @@ proc update_count {} {
 }
 proc set_count {} {
 	set ::cur_coin [string trim $::cur_coin " "]
-	if [expr ![string compare $::cur_coin ""]] return
+	if {![string compare $::cur_coin ""]} return
 	set ::collection($::cur_coin) $::cur_count
 	update_selector ;# in case the value didn't exist before
 }
@@ -145,5 +145,5 @@ proc add_summary_data {coin row} {
 	grid .s.dat.r$row.cc -column 1 -row 0 -sticky e
 	grid columnconfigure .s.dat.r$row "0 1" -weight 1
 }
-ttk::button .tmp -text "Summary" -command {set search ""; show_summary}
-grid .tmp -column 0 -row 99 -columnspan 2 -pady "0 10"
+ttk::button .sum -text "Summary" -command {set search ""; show_summary}
+grid .sum -column 0 -row 99 -columnspan 2 -pady "0 10"
