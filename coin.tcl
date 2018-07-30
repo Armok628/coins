@@ -41,8 +41,14 @@ proc edit_item {name new_name count} {
 	add_item $new_name $count
 }
 
-##### Reader
+##### Root
 wm resizable . 1 0
+wm title . "Collection Counter"
+wm protocol . WM_DELETE_WINDOW {
+	array_out collection "collection.dat"
+	destroy .
+}
+##### Reader
 ttk::frame .reader
 grid .reader -column 0 -row 0 -sticky nswe
 grid columnconfigure . 0 -weight 1
