@@ -58,31 +58,56 @@ proc reset_selector {} {
 proc update_count {} {
 	.reader.count configure -text $::collection([.reader.selector get])
 }
-ttk::combobox .reader.selector -values "" -textvariable selected -postcommand update_selector
+ttk::combobox .reader.selector -values "" -textvariable selected -postcommand {
+	update_selector
+	.reader.selector selection range 0 [string length $selected]
+}
 set selected "Search"
 bind .reader.selector <<ComboboxSelected>> update_count
 ttk::label .reader.count -text "0"
-grid .reader.selector -column 0 -row 0 -sticky we
-grid .reader.count -column 1 -row 0
+grid .reader.selector -column 0 -row 0 -sticky we -padx 5 -pady 5
+grid .reader.count -column 1 -row 0 -padx 5 -pady 5
 grid columnconfigure .reader 0 -weight 5
 grid columnconfigure .reader 1 -weight 1
 grid rowconfigure .reader 0 -weight 1
 
+##### File frame
+ttk::frame .ff
+grid .ff -column 0 -row 2 -sticky nswe
+grid rowconfigure . 2 -weight 1
+
+ttk::button .ff.s -text "Save File" -command {
+	set file [tk_getSaveFile]
+	if [catch {array_out collection $file}] {
+		tk_messageBox -icon warning -message "File not saved" -type ok
+	}
+}
+ttk::button .ff.l -text "Load File" -command {
+	set file [tk_getOpenFile]
+	if [catch {array_in collection $file}] {
+		tk_messageBox -icon warning -message "File not loaded" -type ok
+	}
+}
+grid .ff.s -column 0 -row 0 -padx 5 -pady 5
+grid .ff.l -column 1 -row 0 -padx 5 -pady 5
+grid columnconfigure .ff "0 1" -weight 1
+grid rowconfigure .ff 0 -weight 1
+
 ##### Controls
 ttk::frame .controls
-grid .controls -column 0 -row 1
+grid .controls -column 0 -row 1 -sticky nswe
 grid rowconfigure . 1 -weight 1
 
 ttk::button .controls.add -text "Add Entry" -command add_menu
 ttk::button .controls.summ -text "Summary" -command summary_menu
 ttk::button .controls.edit -text "Edit Entry" -command edit_menu
-grid .controls.add -column 0 -row 0 -sticky nswe
-grid .controls.summ -column 1 -row 0 -sticky nswe
-grid .controls.edit -column 2 -row 0 -sticky nswe
+grid .controls.add -column 0 -row 0 -padx 5 -pady 5
+grid .controls.summ -column 1 -row 0 -padx 5 -pady 5
+grid .controls.edit -column 2 -row 0 -padx 5 -pady 5
 grid columnconfigure .controls "0 1 2" -weight 1
 grid rowconfigure .controls 0 -weight 1
 
-##### Menus
+##### Add
 proc add_menu {} {
 	if [catch {toplevel .add}] return
 	grab set .add
@@ -100,39 +125,80 @@ proc add_menu {} {
 	bind .add.menu.name <Return> $add_cmd
 	focus .add.menu.name
 	ttk::button .add.menu.go -text "Add" -command $add_cmd
-	grid .add.menu.name -column 0 -row 0 -sticky we
-	grid .add.menu.go -column 0 -row 1
+	grid .add.menu.name -column 0 -row 0 -sticky we -padx 5 -pady 5
+	grid .add.menu.go -column 0 -row 1 -padx 5 -pady 5
 	grid columnconfigure .add.menu 0 -weight 1
 	grid rowconfigure .add.menu 0 -weight 1
 }
+##### Summary
 proc summary_menu {} {
+	if [catch {toplevel .summ}] return
+	grab set .summ
+	grid columnconfigure .summ 0 -weight 1
+	grid rowconfigure .summ 1 -weight 1
+	ttk::frame .summ.head
+	grid .summ.head -column 0 -row 0 -sticky nswe
+	grid columnconfigure .summ.head 0 -weight 1
+	ttk::entry .summ.head.filter -textvariable ::filter
+	bind .summ.head.filter <Return> do_summary_filter
+	set ::filter ""
+	ttk::button .summ.head.dofilt -text "Filter" -command do_summary_filter
+	ttk::label .summ.head.name -text "Name"
+	ttk::label .summ.head.count -text "Count"
+	grid .summ.head.filter -column 0 -row 0 -sticky we
+	grid .summ.head.dofilt -column 1 -row 0 -sticky nswe
+	grid .summ.head.name -column 0 -row 1 -sticky w
+	grid .summ.head.count -column 1 -row 1 -sticky e
+	ttk::scrollbar .summ.scroll -orient vertical -command ".summ.items yview"
+	grid .summ.scroll -column 1 -row 0 -rowspan 2 -sticky ns
+	populate_summary
 }
-proc add_summary_item {item row} {
-	set color [expr $row%2?"#FFFFFF":"#F0F0F0"]
-	set update_cmd ".reader.selector configure -text $item; update_count"
-	ttk::frame .summ.items.r$row -background $color
-	bind .summ.items.r$row <1> update_cmd
-	ttk::label .summ.items.r$row.name -text $item -background $color
-	bind .summ.items.r$row.name <1> update_cmd
-	ttk::separator .summ.items.r$row.sep -orient vertical
-	bind .summ.items.r$row.sep <1> update_cmd
-	ttk::label .summ.items r$row.count -text $::collection($item) -background $color
-	bind .summ.items.r$row.count <1> update_cmd
-	grid .summ.items.r$row -column 0 -row $row -sticky we
-	grid .summ.items.r$row.name -column 0 -row 0 -sticky w
-	grid .summ.items.r$row.sep -column 1 -row 0 -sticky ns
-	grid .summ.items.r$row.count -column 2 -row 0 -sticky e
-	grid columnconfigure .summ.items.r$row "0 2" -weight 1
+proc do_summary_filter {} {
+	catch {destroy .summ.items}
+	populate_summary
 }
-proc update_summary {} {
+proc populate_summary {} {
+	canvas .summ.items -yscrollcommand ".summ.scroll set"
+	ttk::frame .summ.items.list
 	set names [list_items $::filter]
 	set sum 0
-	set row 1
+	set row 0
 	foreach name $names {
 		incr sum $::collection($name)
 		add_summary_item $name $row
+		incr row
 	}
+	grid .summ.items -column 0 -row 1 -sticky nswe
+	.summ.items create window 0 0 -anchor nw -window .summ.items.list
+	resize_canvas .summ.items
+	.summ.head.name configure -text "Name ($row)"
+	.summ.head.count configure -text "Count ($sum)"
 }
+proc add_summary_item {item row} {
+	set color [expr $row%2?"#FFFFFF":"#F0F0F0"]
+	set update_cmd "set ::selected {$item}; update_count"
+
+	frame .summ.items.list.r$row -background $color
+	bind .summ.items.list.r$row <1> $update_cmd
+	grid .summ.items.list.r$row -column 0 -row $row -sticky we
+
+	ttk::label .summ.items.list.r$row.name -text $item -background $color -width 100
+	bind .summ.items.list.r$row.name <1> $update_cmd
+	ttk::label .summ.items.list.r$row.count -text $::collection($item) -background $color
+	bind .summ.items.list.r$row.count <1> $update_cmd
+
+	grid .summ.items.list.r$row.name -column 0 -row 0 -sticky w
+	grid .summ.items.list.r$row.count -column 1 -row 0 -sticky e
+	grid columnconfigure .summ.items.list.r$row "0 1" -weight 1
+}
+proc resize_canvas {path} {
+	update
+	set size [$path bbox all]
+	$path configure -scrollregion $size
+	$path configure -width [lindex $size 2]
+	#$path configure -height [lindex $size 3]
+}
+##### Edit
 proc edit_menu {} {
 	set item [.reader.selector get]
 	if {![info exists ::collection($item)]} return
@@ -145,7 +211,7 @@ proc edit_menu {} {
 	grid columnconfigure .edit 0 -weight 1
 	grid rowconfigure .edit 0 -weight 1
 
-	set edit_cmd "edit_item $item \$editname \$editcount; reset_selector; destroy .edit"
+	set edit_cmd "edit_item {$item} \$editname \$editcount; reset_selector; destroy .edit"
 	ttk::entry .edit.menu.name -textvariable ::editname
 	bind .edit.menu.name <Return> $edit_cmd
 	set ::editname $item
@@ -155,11 +221,10 @@ proc edit_menu {} {
 	set ::editcount $::collection($item) 
 	bind .edit.menu.count <Return> $edit_cmd
 	ttk::button .edit.menu.submit -text "Submit" -command $edit_cmd
-	ttk::button .edit.menu.delete -text "Delete" -command "remove_item $item; reset_selector; destroy .edit"
-	grid .edit.menu.name -column 0 -row 0 -sticky we
-	grid .edit.menu.count -column 1 -row 0 -sticky we
-	grid .edit.menu.delete -column 0 -row 1
-	grid .edit.menu.submit -column 1 -row 1
+	ttk::button .edit.menu.delete -text "Delete" -command "remove_item {$item}; reset_selector; destroy .edit"
+	grid .edit.menu.name -column 0 -row 0 -sticky we -padx 5 -pady 5
+	grid .edit.menu.count -column 1 -row 0 -sticky we -padx 5 -pady 5
+	grid .edit.menu.delete -column 0 -row 1 -padx 5 -pady 5
+	grid .edit.menu.submit -column 1 -row 1 -padx 5 -pady 5
 	grid columnconfigure .edit.menu 0 -weight 1
 }
-array_in collection sampledata
