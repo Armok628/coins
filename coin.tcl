@@ -42,6 +42,7 @@ proc edit_item {name new_name count} {
 }
 
 ##### Reader
+wm resizable . 1 0
 ttk::frame .reader
 grid .reader -column 0 -row 0 -sticky nswe
 grid columnconfigure . 0 -weight 1
@@ -72,26 +73,28 @@ grid columnconfigure .reader 1 -weight 1
 grid rowconfigure .reader 0 -weight 1
 
 ##### File frame
-ttk::frame .ff
-grid .ff -column 0 -row 2 -sticky nswe
-grid rowconfigure . 2 -weight 1
-
-ttk::button .ff.s -text "Save File" -command {
-	set file [tk_getSaveFile]
-	if [catch {array_out collection $file}] {
+proc save_to_file {} {
+	if [catch {array_out ::collection [tk_getSaveFile]}] {
 		tk_messageBox -icon warning -message "File not saved" -type ok
 	}
 }
-ttk::button .ff.l -text "Load File" -command {
-	set file [tk_getOpenFile]
-	if [catch {array_in collection $file}] {
+proc load_from_file {} {
+	if [catch {array_in ::collection [tk_getOpenFile]}] {
 		tk_messageBox -icon warning -message "File not loaded" -type ok
 	}
 }
-grid .ff.s -column 0 -row 0 -padx 5 -pady 5
-grid .ff.l -column 1 -row 0 -padx 5 -pady 5
-grid columnconfigure .ff "0 1" -weight 1
-grid rowconfigure .ff 0 -weight 1
+#ttk::frame .ff
+#grid .ff -column 0 -row 2 -sticky nswe
+#grid rowconfigure . 2 -weight 1
+#ttk::button .ff.s -text "Save File" -command save_to_file
+#ttk::button .ff.l -text "Load File" -command load_from_file
+#grid .ff.s -column 0 -row 0 -padx 5 -pady 5
+#grid .ff.l -column 1 -row 0 -padx 5 -pady 5
+#grid columnconfigure .ff "0 1" -weight 1
+#grid rowconfigure .ff 0 -weight 1
+catch {array_in collection "collection.dat"}
+bind . <Control-l> load_from_file
+bind . <Control-s> save_to_file
 
 ##### Controls
 ttk::frame .controls
@@ -101,9 +104,9 @@ grid rowconfigure . 1 -weight 1
 ttk::button .controls.add -text "Add Entry" -command add_menu
 ttk::button .controls.summ -text "Summary" -command summary_menu
 ttk::button .controls.edit -text "Edit Entry" -command edit_menu
-grid .controls.add -column 0 -row 0 -padx 5 -pady 5
-grid .controls.summ -column 1 -row 0 -padx 5 -pady 5
-grid .controls.edit -column 2 -row 0 -padx 5 -pady 5
+grid .controls.add -column 0 -row 0 -padx 5 -pady 5 -sticky nswe
+grid .controls.summ -column 1 -row 0 -padx 5 -pady 5 -sticky nswe
+grid .controls.edit -column 2 -row 0 -padx 5 -pady 5 -sticky nswe
 grid columnconfigure .controls "0 1 2" -weight 1
 grid rowconfigure .controls 0 -weight 1
 
@@ -112,27 +115,31 @@ proc add_menu {} {
 	if [catch {toplevel .add}] return
 	grab set .add
 	wm title .add "Add Item"
-#	wm resizable .add 1 0
+	wm resizable .add 1 0
 	ttk::frame .add.menu
 	grid .add.menu -column 0 -row 0 -sticky nswe
 	grid columnconfigure .add 0 -weight 1
 	grid rowconfigure .add 0 -weight 1
 
-	set add_cmd {add_item $::addendum 0; reset_selector; destroy .add}
-	ttk::entry .add.menu.name -textvariable ::addendum
+	set add_cmd {add_item $::addendum $::add_ct; reset_selector; destroy .add}
+	ttk::entry .add.menu.name -textvariable ::addendum -width 40
 	set ::addendum "New item"
 	.add.menu.name selection range 0 8
 	bind .add.menu.name <Return> $add_cmd
 	focus .add.menu.name
+	ttk::entry .add.menu.count -textvariable ::add_ct -width 10
+	set ::add_ct 0
 	ttk::button .add.menu.go -text "Add" -command $add_cmd
 	grid .add.menu.name -column 0 -row 0 -sticky we -padx 5 -pady 5
-	grid .add.menu.go -column 0 -row 1 -padx 5 -pady 5
+	grid .add.menu.count -column 1 -row 0 -sticky we -padx 5 -pady 5
+	grid .add.menu.go -column 0 -row 1 -columnspan 2 -padx 5 -pady 5
 	grid columnconfigure .add.menu 0 -weight 1
 	grid rowconfigure .add.menu 0 -weight 1
 }
 ##### Summary
 proc summary_menu {} {
 	if [catch {toplevel .summ}] return
+	wm resizable .summ 0 1
 	grab set .summ
 	grid columnconfigure .summ 0 -weight 1
 	grid rowconfigure .summ 1 -weight 1
@@ -143,15 +150,29 @@ proc summary_menu {} {
 	bind .summ.head.filter <Return> do_summary_filter
 	set ::filter ""
 	ttk::button .summ.head.dofilt -text "Filter" -command do_summary_filter
+	ttk::button .summ.head.export -text "Export" -command export
 	ttk::label .summ.head.name -text "Name"
 	ttk::label .summ.head.count -text "Count"
 	grid .summ.head.filter -column 0 -row 0 -sticky we
 	grid .summ.head.dofilt -column 1 -row 0 -sticky nswe
+	grid .summ.head.export -column 2 -row 0 -sticky nswe
 	grid .summ.head.name -column 0 -row 1 -sticky w
-	grid .summ.head.count -column 1 -row 1 -sticky e
+	grid .summ.head.count -column 2 -row 1 -sticky e
 	ttk::scrollbar .summ.scroll -orient vertical -command ".summ.items yview"
 	grid .summ.scroll -column 1 -row 0 -rowspan 2 -sticky ns
 	populate_summary
+}
+proc export {} {
+	set file [tk_getSaveFile]
+	if [catch {set fh [open $file w]} err] {
+		tk_messageBox -message "Export failed" -detail "$err" -icon warning -type ok
+		return
+	}
+	set vals [list_items $::filter]
+	foreach val $vals {
+		puts $fh "$val: $::collection($val)"
+	}
+	close $fh
 }
 proc do_summary_filter {} {
 	catch {destroy .summ.items}
