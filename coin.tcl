@@ -175,7 +175,7 @@ proc populate_summary {} {
 	.summ.head.count configure -text "Count ($sum)"
 }
 proc add_summary_item {item row} {
-	set color [expr $row%2?"#FFFFFF":"#F0F0F0"]
+	set color [expr $row%2?"#F0F0F0":"#FFFFFF"]
 	set update_cmd "set ::selected {$item}; update_count"
 
 	frame .summ.items.list.r$row -background $color
