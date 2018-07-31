@@ -146,6 +146,7 @@ proc add_menu {} {
 proc summary_menu {} {
 	if [catch {toplevel .summ}] return
 	wm resizable .summ 0 1
+	wm title .summ "Summary"
 	grab set .summ
 	grid columnconfigure .summ 0 -weight 1
 	grid rowconfigure .summ 1 -weight 1
@@ -239,12 +240,12 @@ proc edit_menu {} {
 	grid rowconfigure .edit 0 -weight 1
 
 	set edit_cmd "edit_item {$item} \$editname \$editcount; reset_selector; destroy .edit"
-	ttk::entry .edit.menu.name -textvariable ::editname
+	ttk::entry .edit.menu.name -textvariable ::editname -width 40
 	bind .edit.menu.name <Return> $edit_cmd
 	set ::editname $item
 	focus .edit.menu.name
 	.edit.menu.name selection range 0 [string length $item]
-	ttk::spinbox .edit.menu.count -from 0 -to 1000000 -increment 1 -wrap 0 -textvariable ::editcount
+	ttk::spinbox .edit.menu.count -from 0 -to 1000000 -increment 1 -wrap 0 -textvariable ::editcount -width 10
 	set ::editcount $::collection($item) 
 	bind .edit.menu.count <Return> $edit_cmd
 	ttk::button .edit.menu.submit -text "Submit" -command $edit_cmd
