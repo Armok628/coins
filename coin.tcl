@@ -42,6 +42,7 @@ proc edit_item {name new_name count} {
 }
 
 ##### Root
+wm minsize . 300 100
 wm resizable . 1 0
 wm title . "Collection Counter"
 wm protocol . WM_DELETE_WINDOW {
@@ -69,13 +70,15 @@ ttk::combobox .reader.selector -values "" -textvariable selected -postcommand {
 	update_selector
 	.reader.selector selection range 0 [string length $selected]
 }
-set selected "Search"
+set selected ""
 bind .reader.selector <<ComboboxSelected>> update_count
+ttk::label .reader.l -text "Search"
 ttk::label .reader.count -text "0"
-grid .reader.selector -column 0 -row 0 -sticky we -padx 5 -pady 5
-grid .reader.count -column 1 -row 0 -padx 5 -pady 5
-grid columnconfigure .reader 0 -weight 5
-grid columnconfigure .reader 1 -weight 1
+grid .reader.l -column 0 -row 0 -sticky w -padx 5 -pady 5
+grid .reader.selector -column 1 -row 0 -sticky we -padx 5 -pady 5
+grid .reader.count -column 2 -row 0 -padx 5 -pady 5
+grid columnconfigure .reader 1 -weight 5
+grid columnconfigure .reader 2 -weight 1
 grid rowconfigure .reader 0 -weight 1
 
 ##### File frame
@@ -120,6 +123,7 @@ grid rowconfigure .controls 0 -weight 1
 proc add_menu {} {
 	if [catch {toplevel .add}] return
 	grab set .add
+	wm minsize .add 300 75
 	wm title .add "Add Item"
 	wm resizable .add 1 0
 	ttk::frame .add.menu
@@ -145,6 +149,7 @@ proc add_menu {} {
 ##### Summary
 proc summary_menu {} {
 	if [catch {toplevel .summ}] return
+	wm minsize .summ -1 200
 	wm resizable .summ 0 1
 	wm title .summ "Summary"
 	grab set .summ
@@ -228,28 +233,28 @@ proc resize_canvas {path} {
 }
 ##### Edit
 proc edit_menu {} {
-	set item [.reader.selector get]
-	if {![info exists ::collection($item)]} return
+	if {![info exists ::collection($::selected)]} return
 	if [catch {toplevel .edit}] return
+	wm minsize .edit 300 75
 	grab set .edit
-	wm title .edit "Editing $item"
+	wm title .edit "Editing $::selected"
 #	wm resizable .edit 1 0
 	ttk::frame .edit.menu
 	grid .edit.menu -column 0 -row 0 -sticky nswe
 	grid columnconfigure .edit 0 -weight 1
 	grid rowconfigure .edit 0 -weight 1
 
-	set edit_cmd "edit_item {$item} \$editname \$editcount; reset_selector; destroy .edit"
+	set edit_cmd "edit_item {$::selected} \$editname \$editcount; reset_selector; destroy .edit"
 	ttk::entry .edit.menu.name -textvariable ::editname -width 40
 	bind .edit.menu.name <Return> $edit_cmd
-	set ::editname $item
+	set ::editname $::selected
 	focus .edit.menu.name
-	.edit.menu.name selection range 0 [string length $item]
+	.edit.menu.name selection range 0 [string length $::selected]
 	ttk::spinbox .edit.menu.count -from 0 -to 1000000 -increment 1 -wrap 0 -textvariable ::editcount -width 10
-	set ::editcount $::collection($item) 
+	set ::editcount $::collection($::selected) 
 	bind .edit.menu.count <Return> $edit_cmd
 	ttk::button .edit.menu.submit -text "Submit" -command $edit_cmd
-	ttk::button .edit.menu.delete -text "Delete" -command "remove_item {$item}; reset_selector; destroy .edit"
+	ttk::button .edit.menu.delete -text "Delete" -command "remove_item {$::selected}; reset_selector; destroy .edit"
 	grid .edit.menu.name -column 0 -row 0 -sticky we -padx 5 -pady 5
 	grid .edit.menu.count -column 1 -row 0 -sticky we -padx 5 -pady 5
 	grid .edit.menu.delete -column 0 -row 1 -padx 5 -pady 5
